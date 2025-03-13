@@ -237,12 +237,11 @@ async function getMarketConditions(make, model) {
 
 // Function to create KBB URL and price estimate
 async function getKBBPrice(carDetails) {
-    console.log("Generating KBB information for:", carDetails);
+    console.debug("Generating KBB information for:", carDetails);
     
     // Format URLs and search parameters
-    const kbbBaseUrl = 'https://www.kbb.com/';
-    const makeFormatted = carDetails.make.toLowerCase().replace(/\s+/g, '-');
-    const modelFormatted = carDetails.model.toLowerCase().replace(/\s+/g, '-');
+    const makeEncoded = encodeURIComponent(carDetails.make);
+    const modelEncoded = encodeURIComponent(carDetails.model);
     const yearEncoded = encodeURIComponent(carDetails.year);
     const fullModelName = `${carDetails.year} ${carDetails.make} ${carDetails.model}`;
     const zipCode = '60601'; // Default to Chicago
@@ -251,115 +250,63 @@ async function getKBBPrice(carDetails) {
     const urls = {
         // KBB URL with specific model handling
         kbb: (() => {
-            let url = `${kbbBaseUrl}${makeFormatted}/`;
+            let url = `https://www.kbb.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/`;
             if (carDetails.make === 'BMW') {
-                switch(modelFormatted) {
-                    case '3': return `${kbbBaseUrl}bmw/3-series/${carDetails.year}/`;
-                    case '5': return `${kbbBaseUrl}bmw/5-series/${carDetails.year}/`;
-                    case 'x1': return `${kbbBaseUrl}bmw/x1/${carDetails.year}/`;
-                    case 'x3': return `${kbbBaseUrl}bmw/x3/${carDetails.year}/`;
-                    default: url += `${modelFormatted}/${carDetails.year}/`;
+                switch(carDetails.model.toLowerCase()) {
+                    case '3': return `https://www.kbb.com/bmw/3-series/${carDetails.year}/`;
+                    case '5': return `https://www.kbb.com/bmw/5-series/${carDetails.year}/`;
+                    case 'x1': return `https://www.kbb.com/bmw/x1/${carDetails.year}/`;
+                    case 'x3': return `https://www.kbb.com/bmw/x3/${carDetails.year}/`;
+                    case 'x5': return `https://www.kbb.com/bmw/x5/${carDetails.year}/`;
+                    default: url += `${carDetails.model.toLowerCase().replace(/\s+/g, '-')}/${carDetails.year}/`;
                 }
             } else {
-                url += `${modelFormatted}/${carDetails.year}/`;
+                url += `${carDetails.model.toLowerCase().replace(/\s+/g, '-')}/${carDetails.year}/`;
             }
             return url;
         })(),
-
-        // Edmunds with specific model search
-        edmunds: `https://www.edmunds.com/${makeFormatted}/${modelFormatted}/${carDetails.year}/review/`,
-        
-        // CARFAX direct VIN search and history report
-        carfax: `https://www.carfax.com/vehicle/${carDetails.year}/${encodeURIComponent(carDetails.make)}/${encodeURIComponent(carDetails.model)}`,
-        
-        // Cars.com market comparison
-        carsCom: `https://www.cars.com/shopping/results/?dealer_id=&keyword=${encodeURIComponent(fullModelName)}&list_price_max=${Math.ceil(carDetails.price * 1.2)}&list_price_min=${Math.floor(carDetails.price * 0.8)}&maximum_distance=100&stock_type=used&zip=${zipCode}`,
-
-        // RepairPal maintenance costs and reliability
-        repairPal: `https://repairpal.com/cars/${makeFormatted}/${modelFormatted}/${carDetails.year}`,
-        
-        // Consumer Reports (if available)
-        consumerReports: `https://www.consumerreports.org/cars/${makeFormatted}/${modelFormatted}/${carDetails.year}/`,
-
-        // AutoTempest (aggregates multiple listing sites)
-        autoTempest: `https://www.autotempest.com/results?make=${encodeURIComponent(carDetails.make)}&model=${encodeURIComponent(carDetails.model)}&year=${yearEncoded}&zip=${zipCode}&radius=100`,
-        
-        // YouTube reviews search
-        youtubeReviews: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${carDetails.year} ${carDetails.make} ${carDetails.model} review`)}`,
+        carfax: `https://www.carfax.com/vehicle/${carDetails.year}/${makeEncoded}/${modelEncoded}`,
+        edmunds: `https://www.edmunds.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/${carDetails.model.toLowerCase().replace(/\s+/g, '-')}/${carDetails.year}/review/`,
+        carsCom: `https://www.cars.com/shopping/results/?dealer_id=&keyword=${encodeURIComponent(fullModelName)}&list_price_max=${Math.ceil(carDetails.price * 1.2)}&list_price_min=${Math.floor(carDetails.price * 0.8)}&maximum_distance=100&stock_type=used&zip=${zipCode}`
     };
 
-    // Create the research tools section with improved organization
-    const researchToolsHtml = `
-        <div class="resources" style="margin-top: 15px;">
-            <strong>Research Tools:</strong>
-            
-            <div style="margin: 10px 0;">
-                <strong style="color: #666; font-size: 13px;">Price Comparison:</strong><br>
-                <a href="${urls.kbb}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Kelly Blue Book Value
-                </a>
-                <a href="${urls.carsCom}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Similar Cars for Sale
-                </a>
-                <a href="${urls.autoTempest}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Search All Sites
-                </a>
-            </div>
-
-            <div style="margin: 10px 0;">
-                <strong style="color: #666; font-size: 13px;">Vehicle History & Reliability:</strong><br>
-                <a href="${urls.carfax}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ CARFAX History Report
-                </a>
-                <a href="${urls.repairPal}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Maintenance Costs & Reliability
-                </a>
-            </div>
-
-            <div style="margin: 10px 0;">
-                <strong style="color: #666; font-size: 13px;">Reviews & Research:</strong><br>
-                <a href="${urls.edmunds}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Edmunds Expert Review
-                </a>
-                <a href="${urls.youtubeReviews}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Video Reviews
-                </a>
-                <a href="${urls.consumerReports}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Consumer Reports
-                </a>
-            </div>
-        </div>
-    `;
-
-    // Update your existing response HTML to include the new research tools section
+    // Calculate various metrics
+    const currentYear = new Date().getFullYear();
+    const vehicleAge = currentYear - carDetails.year;
+    const expectedMileage = vehicleAge * 12000; // Industry standard
+    const mileageDifference = carDetails.mileage - expectedMileage;
+    
+    // Create detailed response HTML
     const response = `
-        <div class="kbb-details" style="font-family: Arial, sans-serif;">
-            <div class="car-info" style="margin-bottom: 12px;">
+        <div class="kbb-details">
+            <div class="car-info">
                 <strong>Vehicle Details:</strong><br>
                 ${carDetails.year} ${carDetails.make} ${carDetails.model} ${carDetails.trim}<br>
                 ${carDetails.mileage ? `Mileage: ${carDetails.mileage.toLocaleString()} miles<br>` : ''}
                 ${carDetails.price ? `Listed Price: $${carDetails.price.toLocaleString()}` : 'Price: Not listed'}
             </div>
             
-            <div class="market-analysis" style="margin-bottom: 12px;">
+            <div class="market-analysis">
                 <strong>Market Analysis:</strong><br>
-                • Vehicle Age: ${new Date().getFullYear() - parseInt(carDetails.year)} years<br>
-                • Expected Mileage: ${Math.round(parseInt(carDetails.mileage) * 1.2)} miles<br>
-                • Mileage Difference: ${Math.round(parseInt(carDetails.mileage) * 0.2)} miles<br>
-                ${carDetails.price ? `• Price per Year of Age: $${Math.round(carDetails.price/parseInt(carDetails.year)).toLocaleString()}<br>` : ''}
+                • Vehicle Age: ${vehicleAge} years<br>
+                • Expected Mileage: ${expectedMileage.toLocaleString()} miles<br>
+                • Mileage Difference: ${mileageDifference > 0 ? '+' : ''}${mileageDifference.toLocaleString()} miles
             </div>
 
-            <div class="maintenance-info" style="margin-bottom: 12px;">
-                <strong>Maintenance & Reliability:</strong><br>
-                • Major Service Interval: ${getMajorServiceInterval(carDetails.make)}<br>
-                • Common Issues: ${getCommonIssues(carDetails.make, carDetails.model)}<br>
-                • Next Major Service: ${getNextMajorService(parseInt(carDetails.mileage), carDetails.make)}
-            </div>
-
-            ${researchToolsHtml}
-
-            <div style="font-size: 11px; color: #666; margin-top: 10px;">
-                Note: Values are estimates. Always verify information with multiple sources.
+            <div class="resources">
+                <strong>Research Tools:</strong><br>
+                <a href="${urls.kbb}" target="_blank">
+                    ➤ Kelly Blue Book Value
+                </a><br>
+                <a href="${urls.carfax}" target="_blank">
+                    ➤ CARFAX History Report
+                </a><br>
+                <a href="${urls.edmunds}" target="_blank">
+                    ➤ Edmunds Expert Review
+                </a><br>
+                <a href="${urls.carsCom}" target="_blank">
+                    ➤ Similar Cars for Sale
+                </a>
             </div>
         </div>
     `;
@@ -367,54 +314,9 @@ async function getKBBPrice(carDetails) {
     return response;
 }
 
-// Helper function for major service intervals
-function getMajorServiceInterval(make) {
-    const intervals = {
-        'BMW': '10,000 miles or 1 year',
-        'Mercedes-Benz': '10,000 miles or 1 year',
-        'Audi': '10,000 miles or 1 year',
-        'Toyota': '5,000-7,500 miles or 6 months',
-        'Honda': '7,500 miles or 1 year',
-        // Add more makes as needed
-        'default': '7,500 miles or 1 year'
-    };
-    return intervals[make] || intervals['default'];
-}
-
-// Helper function for common issues
-function getCommonIssues(make, model) {
-    const issues = {
-        'BMW': {
-            '3': 'Oil leaks, Cooling system, Electric window regulators',
-            'X1': 'Timing chain, Oil leaks, Suspension components',
-            'default': 'Oil leaks, Electrical systems'
-        },
-        'default': 'Check maintenance history and get pre-purchase inspection'
-    };
-    return issues[make]?.[model] || issues[make]?.['default'] || issues['default'];
-}
-
-// Helper function to calculate next major service
-function getNextMajorService(mileage, make) {
-    if (!mileage) return 'Unknown - mileage not provided';
-    
-    const serviceIntervals = {
-        'BMW': 10000,
-        'Mercedes-Benz': 10000,
-        'Audi': 10000,
-        'Toyota': 5000,
-        'Honda': 7500,
-        'default': 7500
-    };
-    
-    const interval = serviceIntervals[make] || serviceIntervals['default'];
-    const nextService = Math.ceil(mileage / interval) * interval;
-    return `${nextService.toLocaleString()} miles`;
-}
-
 // Function to inject KBB price into the page
 function injectKBBPrice(kbbPrice) {
-    console.log("Attempting to inject KBB price information...");
+    console.debug("Injecting KBB price information...");
 
     // Remove any existing KBB container
     const existingContainer = document.getElementById('kbb-price-container');
@@ -422,88 +324,157 @@ function injectKBBPrice(kbbPrice) {
         existingContainer.remove();
     }
 
-    // Create new container
+    // Detect if Facebook is in dark mode
+    const isDarkMode = document.documentElement.classList.contains('__fb-dark-mode') || 
+                      document.body.classList.contains('__fb-dark-mode') ||
+                      document.querySelector('body[class*="dark"]') !== null;
+    
+    // Set theme colors based on Facebook's mode
+    const theme = {
+        background: isDarkMode ? '#242526' : '#ffffff',
+        cardBackground: isDarkMode ? '#3a3b3c' : '#f0f2f5',
+        text: isDarkMode ? '#e4e6eb' : '#050505',
+        secondaryText: isDarkMode ? '#b0b3b8' : '#65676b',
+        border: isDarkMode ? '#3a3b3c' : '#dadde1',
+        accent: '#1877f2', // Facebook blue
+        hover: isDarkMode ? '#4e4f50' : '#e4e6eb',
+        shadow: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.1)'
+    };
+
+    // Create new container with Facebook-like styling
     const priceContainer = document.createElement('div');
     priceContainer.id = 'kbb-price-container';
     priceContainer.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
-        width: 300px;
-        background-color: white;
-        padding: 16px;
+        width: 340px;
+        background-color: ${theme.background};
         border-radius: 8px;
-        border: 1px solid #ddd;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 12px ${theme.shadow};
         z-index: 9999;
         max-height: 80vh;
         overflow-y: auto;
-        font-family: Arial, sans-serif;
-        color: #1c1e21;
-        touch-action: pan-y pinch-zoom;
+        font-family: Helvetica, Arial, sans-serif;
+        color: ${theme.text};
+        transition: all 0.2s ease;
+        border: 1px solid ${theme.border};
     `;
 
-    // Add a close button
-    const closeButton = document.createElement('button');
-    closeButton.innerHTML = '×';
-    closeButton.style.cssText = `
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        background: none;
-        border: none;
-        font-size: 20px;
-        cursor: pointer;
-        padding: 5px;
-        color: #65676B;
+    // Create header with Facebook-like styling
+    const header = document.createElement('div');
+    header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid ${theme.border};
     `;
+
+    const title = document.createElement('div');
+    title.textContent = 'Kelly Blue Book Information';
+    title.style.cssText = `
+        font-weight: 600;
+        font-size: 16px;
+        color: ${theme.text};
+    `;
+
+    // Add Facebook-like close button
+    const closeButton = document.createElement('div');
+    closeButton.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="${isDarkMode ? '#4e4f50' : '#e4e6eb'}"/>
+            <path d="M15 9L9 15M9 9L15 15" stroke="${isDarkMode ? '#e4e6eb' : '#050505'}" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+    `;
+    closeButton.style.cssText = `
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        margin-left: 8px;
+    `;
+    closeButton.onmouseover = () => {
+        closeButton.style.backgroundColor = theme.hover;
+    };
+    closeButton.onmouseout = () => {
+        closeButton.style.backgroundColor = 'transparent';
+    };
     closeButton.onclick = () => priceContainer.remove();
 
-    // Create content container
-    const contentDiv = document.createElement('div');
-    contentDiv.innerHTML = kbbPrice;
+    // Add header to container
+    header.appendChild(title);
+    header.appendChild(closeButton);
+    priceContainer.appendChild(header);
 
-    // Assemble the container
-    priceContainer.appendChild(closeButton);
+    // Create content container with Facebook-like styling
+    const contentDiv = document.createElement('div');
+    contentDiv.style.cssText = `
+        padding: 16px;
+        font-size: 14px;
+        line-height: 1.5;
+    `;
+
+    // Format the content with Facebook-like styling
+    const formattedContent = kbbPrice.replace(/<div class="kbb-details".*?>/, '')
+        .replace(/<\/div>$/, '')
+        .replace(/<div class="car-info".*?>/, `
+            <div style="background-color: ${theme.cardBackground}; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        `)
+        .replace(/<div class="market-analysis".*?>/, `
+            <div style="background-color: ${theme.cardBackground}; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        `)
+        .replace(/<div class="maintenance-info".*?>/, `
+            <div style="background-color: ${theme.cardBackground}; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        `)
+        .replace(/<div class="resources".*?>/, `
+            <div style="background-color: ${theme.cardBackground}; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        `)
+        .replace(/<strong>/g, `<strong style="color: ${theme.text}; font-weight: 600;">`)
+        .replace(/<a href/g, `<a style="color: ${theme.accent}; text-decoration: none; font-weight: 500;" href`)
+        .replace(/• /g, `<span style="color: ${theme.accent}; margin-right: 4px;">•</span> `);
+
+    contentDiv.innerHTML = formattedContent;
     priceContainer.appendChild(contentDiv);
+
+    // Add Facebook-like footer
+    const footer = document.createElement('div');
+    footer.style.cssText = `
+        padding: 8px 16px;
+        border-top: 1px solid ${theme.border};
+        font-size: 12px;
+        color: ${theme.secondaryText};
+        text-align: center;
+    `;
+    footer.textContent = 'Values are estimates. Always verify pricing with multiple sources.';
+    priceContainer.appendChild(footer);
 
     // Add to the body
     document.body.appendChild(priceContainer);
 
-    // Make the container draggable with passive event listeners
+    // Make the container draggable
     let isDragging = false;
     let currentX;
     let currentY;
     let initialX;
     let initialY;
 
-    const dragStart = (e) => {
-        if (e.target === closeButton) return;
-        if (e.type === "touchstart") {
-            initialX = e.touches[0].clientX - priceContainer.offsetLeft;
-            initialY = e.touches[0].clientY - priceContainer.offsetTop;
-        } else {
-            initialX = e.clientX - priceContainer.offsetLeft;
-            initialY = e.clientY - priceContainer.offsetTop;
-        }
+    header.addEventListener('mousedown', (e) => {
+        if (e.target === closeButton || e.target.closest('svg')) return;
         isDragging = true;
-    };
+        initialX = e.clientX - priceContainer.offsetLeft;
+        initialY = e.clientY - priceContainer.offsetTop;
+        header.style.cursor = 'grabbing';
+    }, { passive: true });
 
-    const dragEnd = () => {
-        isDragging = false;
-    };
-
-    const drag = (e) => {
+    document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         e.preventDefault();
-
-        if (e.type === "touchmove") {
-            currentX = e.touches[0].clientX - initialX;
-            currentY = e.touches[0].clientY - initialY;
-        } else {
-            currentX = e.clientX - initialX;
-            currentY = e.clientY - initialY;
-        }
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
 
         // Ensure the container stays within viewport bounds
         const bounds = {
@@ -519,22 +490,29 @@ function injectKBBPrice(kbbPrice) {
         priceContainer.style.left = `${currentX}px`;
         priceContainer.style.top = `${currentY}px`;
         priceContainer.style.right = 'auto';
-    };
+    }, { passive: false });
 
-    // Add mouse event listeners
-    priceContainer.addEventListener('mousedown', dragStart, { passive: true });
-    document.addEventListener('mousemove', drag, { passive: false });
-    document.addEventListener('mouseup', dragEnd, { passive: true });
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            header.style.cursor = 'grab';
+        }
+    }, { passive: true });
 
-    // Add touch event listeners with passive option
-    priceContainer.addEventListener('touchstart', dragStart, { passive: true });
-    document.addEventListener('touchmove', drag, { passive: false });
-    document.addEventListener('touchend', dragEnd, { passive: true });
+    // Set header cursor to indicate draggability
+    header.style.cursor = 'grab';
 
-    // Add hover effect to indicate draggability
-    priceContainer.style.cursor = 'move';
+    // Add a subtle animation
+    setTimeout(() => {
+        priceContainer.style.opacity = '0';
+        priceContainer.style.transform = 'translateY(-20px)';
+        
+        setTimeout(() => {
+            priceContainer.style.opacity = '1';
+            priceContainer.style.transform = 'translateY(0)';
+        }, 50);
+    }, 0);
 
-    console.log("KBB information injected as floating container");
     return true;
 }
 
