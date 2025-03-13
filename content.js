@@ -34,39 +34,75 @@ function debugLogDOMStructure() {
 
 // Function to extract car details from Facebook Marketplace listing
 function extractCarDetails() {
-    console.log("Attempting to extract car details...");
+    console.debug("Attempting to extract car details...");
     
-    // Debug log the DOM structure
-    debugLogDOMStructure();
-    
-    // Try to find any element containing car-like information
-    const allElements = document.querySelectorAll('h1, h2, h3, span, div');
-    const carElement = Array.from(allElements).find(el => {
-        const text = el.textContent.trim();
-        // Look for any text that matches a year followed by words
-        return /\d{4}\s+[A-Za-z]/.test(text) && text.length < 100;
-    });
-
-    if (carElement) {
-        console.log("Found potential car element:", carElement);
-        console.log("Text content:", carElement.textContent);
+    // Try to find the car title
+    const titleElement = findCarTitle();
+    if (!titleElement) {
+        console.debug("No title element found");
+        return null;
     }
 
-    // If we found a potential car element, try to extract details
-    if (carElement) {
-        const title = carElement.textContent.trim();
-        const carRegex = /(\d{4})\s+([\w-]+)(?:\s+|-)([\w]+)(?:\s+([\w-]+))?/i;
-        const match = title.match(carRegex);
-        
-        if (match) {
-            return {
-                year: match[1],
-                make: match[2].replace(/-/g, ' '),
-                model: match[3],
-                trim: match[4] || '',
-                mileage: extractMileage(),
-                price: extractPrice()
-            };
+    const title = titleElement.textContent.trim();
+    console.debug("Found title:", title);
+    
+    // Extract car details from title
+    const carRegex = /(\d{4})\s+([\w-]+)(?:\s+|-)([\w]+)(?:\s+([\w-]+))?/i;
+    const match = title.match(carRegex);
+    
+    if (!match) return null;
+
+    // Extract mileage and price
+    const mileage = extractMileage();
+    const price = extractPrice();
+
+    // Log the extracted details
+    console.debug("Extracted details:", {
+        year: match[1],
+        make: match[2],
+        model: match[3],
+        trim: match[4] || '',
+        mileage,
+        price
+    });
+
+    return {
+        year: match[1],
+        make: match[2].replace(/-/g, ' '),
+        model: match[3],
+        trim: match[4] || '',
+        mileage,
+        price
+    };
+}
+
+// Helper function to find the car title
+function findCarTitle() {
+    // Try multiple selectors for the title
+    const titleSelectors = [
+        'h1',
+        '[data-testid="marketplace-listing-title"]',
+        'div[role="main"] span:first-child',
+        'div[class*="title"]'
+    ];
+
+    for (const selector of titleSelectors) {
+        const elements = document.querySelectorAll(selector);
+        for (const element of elements) {
+            const text = element.textContent.trim();
+            // Look for patterns like "2015 Honda Civic" or "2018 BMW M3"
+            if (/\d{4}\s+[A-Za-z-]+\s+[A-Za-z0-9-]+/.test(text)) {
+                return element;
+            }
+        }
+    }
+
+    // If no title found with selectors, try to find any element with car-like text
+    const allElements = document.querySelectorAll('div, span');
+    for (const element of allElements) {
+        const text = element.textContent.trim();
+        if (text.length > 10 && text.length < 100 && /\d{4}\s+[A-Za-z-]+\s+[A-Za-z0-9-]+/.test(text)) {
+            return element;
         }
     }
 
@@ -98,42 +134,90 @@ function extractPrice() {
 function extractMileage() {
     console.debug("Starting mileage extraction...");
 
-    // Get all text elements that might contain mileage information
-    const elements = document.querySelectorAll('div, span');
+    // First try: Look specifically for "Driven X miles" text
+    const detailsElements = Array.from(document.querySelectorAll('div, span'))
+        .filter(el => el.textContent.includes('Driven') && el.textContent.includes('miles'));
     
-    for (const element of elements) {
-        const text = element.textContent.trim();
-        
-        // Skip empty text or very long text
-        if (!text || text.length > 200) continue;
-        
-        // Only log text that contains numbers and "mile"
-        if (text.match(/\d+.*mile/i)) {
-            console.debug(`Checking mileage text: "${text}"`);
-        }
-        
-        // Try different mileage patterns
-        const patterns = [
-            /Driven\s+([\d,]+)\s*miles/i,
-            /([\d,]+)\s*miles/i,
-            /(\d+[,.]?\d*k?)\s*(?:miles|mi)/i,
-            /mileage:\s*([\d,]+)/i
-        ];
-
-        for (const pattern of patterns) {
-            const match = text.match(pattern);
+    if (detailsElements.length > 0) {
+        for (const element of detailsElements) {
+            const text = element.textContent.trim();
+            console.debug(`Found details text: "${text}"`);
+            
+            const match = text.match(/Driven\s+([\d,]+)\s*miles/i);
             if (match) {
-                let mileage = match[1].replace(/,/g, '');
-                if (mileage.toLowerCase().endsWith('k')) {
-                    mileage = parseFloat(mileage) * 1000;
-                }
-                const result = parseInt(mileage);
-                console.debug(`Found mileage: ${result}`);
-                return result;
+                const mileage = parseInt(match[1].replace(/,/g, ''));
+                console.debug(`Extracted mileage from details: ${mileage}`);
+                return mileage;
             }
         }
     }
 
+    // Second try: Look for any element containing mileage information
+    const mileageElements = Array.from(document.querySelectorAll('div, span'))
+        .filter(el => {
+            const text = el.textContent.trim();
+            return text.length < 100 && /\d+\s*(?:,\d+)?\s*miles/i.test(text);
+        });
+    
+    if (mileageElements.length > 0) {
+        for (const element of mileageElements) {
+            const text = element.textContent.trim();
+            console.debug(`Found mileage text: "${text}"`);
+            
+            const match = text.match(/([\d,]+)\s*miles/i);
+            if (match) {
+                const mileage = parseInt(match[1].replace(/,/g, ''));
+                console.debug(`Extracted mileage: ${mileage}`);
+                return mileage;
+            }
+        }
+    }
+
+    // Third try: Look for "Details" section
+    const detailsSection = Array.from(document.querySelectorAll('div'))
+        .find(el => el.textContent.includes('Details') && el.textContent.includes('miles'));
+    
+    if (detailsSection) {
+        const text = detailsSection.textContent;
+        console.debug(`Found details section: "${text}"`);
+        
+        const match = text.match(/Driven\s+([\d,]+)\s*miles/i) || text.match(/([\d,]+)\s*miles/i);
+        if (match) {
+            const mileage = parseInt(match[1].replace(/,/g, ''));
+            console.debug(`Extracted mileage from details section: ${mileage}`);
+            return mileage;
+        }
+    }
+
+    // Fourth try: Check for mileage in the description
+    const descriptionElements = Array.from(document.querySelectorAll('div'))
+        .filter(el => el.textContent.includes('Description') || el.textContent.toLowerCase().includes('mileage'));
+    
+    for (const element of descriptionElements) {
+        const text = element.textContent;
+        const match = text.match(/mileage:?\s*([\d,]+)/i) || 
+                     text.match(/([\d,]+)\s*miles/i) ||
+                     text.match(/miles:?\s*([\d,]+)/i);
+        
+        if (match) {
+            const mileage = parseInt(match[1].replace(/,/g, ''));
+            console.debug(`Extracted mileage from description: ${mileage}`);
+            return mileage;
+        }
+    }
+
+    // If all else fails, try to find any number followed by "miles" in the entire page
+    const bodyText = document.body.textContent;
+    const bodyMatch = bodyText.match(/Driven\s+([\d,]+)\s*miles/i) || 
+                     bodyText.match(/([\d,]+)\s*miles/i);
+    
+    if (bodyMatch) {
+        const mileage = parseInt(bodyMatch[1].replace(/,/g, ''));
+        console.debug(`Extracted mileage from body text: ${mileage}`);
+        return mileage;
+    }
+
+    console.debug("No mileage found");
     return null;
 }
 
@@ -267,14 +351,28 @@ async function getKBBPrice(carDetails) {
         })(),
         carfax: `https://www.carfax.com/vehicle/${carDetails.year}/${makeEncoded}/${modelEncoded}`,
         edmunds: `https://www.edmunds.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/${carDetails.model.toLowerCase().replace(/\s+/g, '-')}/${carDetails.year}/review/`,
-        carsCom: `https://www.cars.com/shopping/results/?dealer_id=&keyword=${encodeURIComponent(fullModelName)}&list_price_max=${Math.ceil(carDetails.price * 1.2)}&list_price_min=${Math.floor(carDetails.price * 0.8)}&maximum_distance=100&stock_type=used&zip=${zipCode}`
+        carsCom: `https://www.cars.com/shopping/results/?dealer_id=&keyword=${encodeURIComponent(fullModelName)}&list_price_max=${Math.ceil((carDetails.price || 20000) * 1.2)}&list_price_min=${Math.floor((carDetails.price || 20000) * 0.8)}&maximum_distance=100&stock_type=used&zip=${zipCode}`
     };
 
     // Calculate various metrics
     const currentYear = new Date().getFullYear();
     const vehicleAge = currentYear - carDetails.year;
-    const expectedMileage = vehicleAge * 12000; // Industry standard
-    const mileageDifference = carDetails.mileage - expectedMileage;
+    
+    // Handle mileage analysis
+    let mileageAnalysis = '';
+    if (carDetails.mileage) {
+        const expectedMileage = vehicleAge * 12000; // Industry standard
+        const mileageDifference = carDetails.mileage - expectedMileage;
+        mileageAnalysis = `
+            • Expected Mileage: ${expectedMileage.toLocaleString()} miles<br>
+            • Mileage Difference: ${mileageDifference > 0 ? '+' : ''}${mileageDifference.toLocaleString()} miles
+        `;
+    } else {
+        mileageAnalysis = `
+            • Expected Mileage: ${(vehicleAge * 12000).toLocaleString()} miles<br>
+            • Actual Mileage: Not available
+        `;
+    }
     
     // Create detailed response HTML
     const response = `
@@ -282,15 +380,14 @@ async function getKBBPrice(carDetails) {
             <div class="car-info">
                 <strong>Vehicle Details:</strong><br>
                 ${carDetails.year} ${carDetails.make} ${carDetails.model} ${carDetails.trim}<br>
-                ${carDetails.mileage ? `Mileage: ${carDetails.mileage.toLocaleString()} miles<br>` : ''}
+                ${carDetails.mileage ? `Mileage: ${carDetails.mileage.toLocaleString()} miles<br>` : 'Mileage: Not available<br>'}
                 ${carDetails.price ? `Listed Price: $${carDetails.price.toLocaleString()}` : 'Price: Not listed'}
             </div>
             
             <div class="market-analysis">
                 <strong>Market Analysis:</strong><br>
                 • Vehicle Age: ${vehicleAge} years<br>
-                • Expected Mileage: ${expectedMileage.toLocaleString()} miles<br>
-                • Mileage Difference: ${mileageDifference > 0 ? '+' : ''}${mileageDifference.toLocaleString()} miles
+                ${mileageAnalysis}
             </div>
 
             <div class="resources">
