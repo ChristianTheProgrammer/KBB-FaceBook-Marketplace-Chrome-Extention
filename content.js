@@ -1,3 +1,10 @@
+// Suppress third-party cookie warnings
+const originalConsoleWarn = console.warn;
+console.warn = function(...args) {
+    if (args[0]?.includes('third-party cookie')) return;
+    originalConsoleWarn.apply(console, args);
+};
+
 // Function to inject our helper script
 function injectHelperScript() {
     const script = document.createElement('script');
@@ -68,99 +75,65 @@ function extractCarDetails() {
 
 // Function to extract price from the listing
 function extractPrice() {
-    console.log("Starting price extraction...");
+    console.debug("Starting price extraction...");
 
-    // First try: Look for the main price display
-    const mainPriceElement = document.querySelector('h1 + div');
-    if (mainPriceElement) {
-        const priceText = mainPriceElement.textContent.trim();
-        console.log("Main price element text:", priceText);
-        const mainMatch = priceText.match(/\$?([\d,]+)/);
-        if (mainMatch) {
-            const price = parseInt(mainMatch[1].replace(/,/g, ''));
-            console.log("Found price from main element:", price);
-            return price;
-        }
-    }
-
-    // Second try: Look for specific price elements
-    const priceSelectors = [
-        '[aria-label="Price"]',
-        'span[class*="price"]',
-        'div[class*="price"]',
-        'h1 + div', // Price often appears right after the title
-        'span.f2', // Facebook's common price class
-    ];
-
-    console.log("Trying price selectors...");
-    for (const selector of priceSelectors) {
-        const elements = document.querySelectorAll(selector);
-        console.log(`Found ${elements.length} elements for selector: ${selector}`);
-        
-        for (const element of elements) {
-            const text = element.textContent.trim();
-            console.log(`Element text: "${text}"`);
-            
-            // Look for price patterns: $X,XXX or $XXX,XXX or $XXXX
-            const priceMatch = text.match(/\$\s*([\d,]+)/);
-            if (priceMatch) {
-                const price = parseInt(priceMatch[1].replace(/,/g, ''));
-                console.log("Found price:", price);
-                return price;
-            }
-        }
-    }
-
-    // Third try: Search all spans for price format
-    console.log("Searching all spans...");
-    const allSpans = document.querySelectorAll('span');
-    for (const span of allSpans) {
-        const text = span.textContent.trim();
+    // Try to find price with $ symbol first
+    const elements = document.querySelectorAll('div, span');
+    for (const element of elements) {
+        const text = element.textContent.trim();
         if (text.includes('$')) {
-            console.log("Found span with $:", text);
-            const priceMatch = text.match(/\$\s*([\d,]+)/);
-            if (priceMatch) {
-                const price = parseInt(priceMatch[1].replace(/,/g, ''));
-                console.log("Found price from span:", price);
+            const match = text.match(/\$\s*([\d,]+)/);
+            if (match) {
+                const price = parseInt(match[1].replace(/,/g, ''));
+                console.debug(`Found price: $${price}`);
                 return price;
             }
         }
     }
 
-    // Fourth try: Look for price in the page title
-    const title = document.title;
-    console.log("Page title:", title);
-    const titleMatch = title.match(/\$\s*([\d,]+)/);
-    if (titleMatch) {
-        const price = parseInt(titleMatch[1].replace(/,/g, ''));
-        console.log("Found price from title:", price);
-        return price;
-    }
-
-    console.log("No price found");
     return null;
 }
 
-// Enhanced mileage extraction
+// Function to extract mileage from the listing
 function extractMileage() {
-    // Log all potential mileage elements
-    console.log("=== Mileage Debug ===");
-    const allElements = document.querySelectorAll('span, div');
-    const potentialMileage = Array.from(allElements)
-        .map(el => el.textContent.trim())
-        .filter(text => /miles|mi|km|mileage/i.test(text));
-    console.log("Potential mileage texts:", potentialMileage);
+    console.debug("Starting mileage extraction...");
 
-    for (const text of potentialMileage) {
-        const match = text.match(/(\d+(?:,\d+)?(?:k)?)\s*(?:miles|mi\.?|mileage)/i);
-        if (match) {
-            let mileage = match[1].replace(/,/g, '');
-            if (mileage.toLowerCase().endsWith('k')) {
-                mileage = parseFloat(mileage) * 1000;
+    // Get all text elements that might contain mileage information
+    const elements = document.querySelectorAll('div, span');
+    
+    for (const element of elements) {
+        const text = element.textContent.trim();
+        
+        // Skip empty text or very long text
+        if (!text || text.length > 200) continue;
+        
+        // Only log text that contains numbers and "mile"
+        if (text.match(/\d+.*mile/i)) {
+            console.debug(`Checking mileage text: "${text}"`);
+        }
+        
+        // Try different mileage patterns
+        const patterns = [
+            /Driven\s+([\d,]+)\s*miles/i,
+            /([\d,]+)\s*miles/i,
+            /(\d+[,.]?\d*k?)\s*(?:miles|mi)/i,
+            /mileage:\s*([\d,]+)/i
+        ];
+
+        for (const pattern of patterns) {
+            const match = text.match(pattern);
+            if (match) {
+                let mileage = match[1].replace(/,/g, '');
+                if (mileage.toLowerCase().endsWith('k')) {
+                    mileage = parseFloat(mileage) * 1000;
+                }
+                const result = parseInt(mileage);
+                console.debug(`Found mileage: ${result}`);
+                return result;
             }
-            return Math.round(parseFloat(mileage));
         }
     }
+
     return null;
 }
 
@@ -266,27 +239,99 @@ async function getMarketConditions(make, model) {
 async function getKBBPrice(carDetails) {
     console.log("Generating KBB information for:", carDetails);
     
-    // Format the KBB URL
+    // Format URLs and search parameters
     const kbbBaseUrl = 'https://www.kbb.com/';
     const makeFormatted = carDetails.make.toLowerCase().replace(/\s+/g, '-');
     const modelFormatted = carDetails.model.toLowerCase().replace(/\s+/g, '-');
-    
-    // Construct KBB URL with proper model naming
-    let kbbUrl = `${kbbBaseUrl}${makeFormatted}/`;
-    if (modelFormatted === '3') {
-        kbbUrl += '3-series/';
-    } else if (modelFormatted === 'x1') {
-        kbbUrl += 'x1/';
-    } else {
-        kbbUrl += `${modelFormatted}/`;
-    }
-    kbbUrl += `${carDetails.year}/`;
+    const yearEncoded = encodeURIComponent(carDetails.year);
+    const fullModelName = `${carDetails.year} ${carDetails.make} ${carDetails.model}`;
+    const zipCode = '60601'; // Default to Chicago
 
-    // Calculate vehicle age
-    const currentYear = new Date().getFullYear();
-    const vehicleAge = currentYear - carDetails.year;
-    
-    // Create detailed response HTML
+    // Construct specific URLs for each service
+    const urls = {
+        // KBB URL with specific model handling
+        kbb: (() => {
+            let url = `${kbbBaseUrl}${makeFormatted}/`;
+            if (carDetails.make === 'BMW') {
+                switch(modelFormatted) {
+                    case '3': return `${kbbBaseUrl}bmw/3-series/${carDetails.year}/`;
+                    case '5': return `${kbbBaseUrl}bmw/5-series/${carDetails.year}/`;
+                    case 'x1': return `${kbbBaseUrl}bmw/x1/${carDetails.year}/`;
+                    case 'x3': return `${kbbBaseUrl}bmw/x3/${carDetails.year}/`;
+                    default: url += `${modelFormatted}/${carDetails.year}/`;
+                }
+            } else {
+                url += `${modelFormatted}/${carDetails.year}/`;
+            }
+            return url;
+        })(),
+
+        // Edmunds with specific model search
+        edmunds: `https://www.edmunds.com/${makeFormatted}/${modelFormatted}/${carDetails.year}/review/`,
+        
+        // CARFAX direct VIN search and history report
+        carfax: `https://www.carfax.com/vehicle/${carDetails.year}/${encodeURIComponent(carDetails.make)}/${encodeURIComponent(carDetails.model)}`,
+        
+        // Cars.com market comparison
+        carsCom: `https://www.cars.com/shopping/results/?dealer_id=&keyword=${encodeURIComponent(fullModelName)}&list_price_max=${Math.ceil(carDetails.price * 1.2)}&list_price_min=${Math.floor(carDetails.price * 0.8)}&maximum_distance=100&stock_type=used&zip=${zipCode}`,
+
+        // RepairPal maintenance costs and reliability
+        repairPal: `https://repairpal.com/cars/${makeFormatted}/${modelFormatted}/${carDetails.year}`,
+        
+        // Consumer Reports (if available)
+        consumerReports: `https://www.consumerreports.org/cars/${makeFormatted}/${modelFormatted}/${carDetails.year}/`,
+
+        // AutoTempest (aggregates multiple listing sites)
+        autoTempest: `https://www.autotempest.com/results?make=${encodeURIComponent(carDetails.make)}&model=${encodeURIComponent(carDetails.model)}&year=${yearEncoded}&zip=${zipCode}&radius=100`,
+        
+        // YouTube reviews search
+        youtubeReviews: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${carDetails.year} ${carDetails.make} ${carDetails.model} review`)}`,
+    };
+
+    // Create the research tools section with improved organization
+    const researchToolsHtml = `
+        <div class="resources" style="margin-top: 15px;">
+            <strong>Research Tools:</strong>
+            
+            <div style="margin: 10px 0;">
+                <strong style="color: #666; font-size: 13px;">Price Comparison:</strong><br>
+                <a href="${urls.kbb}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
+                    ➤ Kelly Blue Book Value
+                </a>
+                <a href="${urls.carsCom}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
+                    ➤ Similar Cars for Sale
+                </a>
+                <a href="${urls.autoTempest}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
+                    ➤ Search All Sites
+                </a>
+            </div>
+
+            <div style="margin: 10px 0;">
+                <strong style="color: #666; font-size: 13px;">Vehicle History & Reliability:</strong><br>
+                <a href="${urls.carfax}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
+                    ➤ CARFAX History Report
+                </a>
+                <a href="${urls.repairPal}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
+                    ➤ Maintenance Costs & Reliability
+                </a>
+            </div>
+
+            <div style="margin: 10px 0;">
+                <strong style="color: #666; font-size: 13px;">Reviews & Research:</strong><br>
+                <a href="${urls.edmunds}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
+                    ➤ Edmunds Expert Review
+                </a>
+                <a href="${urls.youtubeReviews}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
+                    ➤ Video Reviews
+                </a>
+                <a href="${urls.consumerReports}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
+                    ➤ Consumer Reports
+                </a>
+            </div>
+        </div>
+    `;
+
+    // Update your existing response HTML to include the new research tools section
     const response = `
         <div class="kbb-details" style="font-family: Arial, sans-serif;">
             <div class="car-info" style="margin-bottom: 12px;">
@@ -298,29 +343,73 @@ async function getKBBPrice(carDetails) {
             
             <div class="market-analysis" style="margin-bottom: 12px;">
                 <strong>Market Analysis:</strong><br>
-                • Vehicle Age: ${vehicleAge} years
+                • Vehicle Age: ${new Date().getFullYear() - parseInt(carDetails.year)} years<br>
+                • Expected Mileage: ${Math.round(parseInt(carDetails.mileage) * 1.2)} miles<br>
+                • Mileage Difference: ${Math.round(parseInt(carDetails.mileage) * 0.2)} miles<br>
+                ${carDetails.price ? `• Price per Year of Age: $${Math.round(carDetails.price/parseInt(carDetails.year)).toLocaleString()}<br>` : ''}
             </div>
 
-            <div class="resources" style="margin-top: 15px;">
-                <strong>Research Tools:</strong><br>
-                <a href="${kbbUrl}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Check KBB Price
-                </a>
-                <a href="https://www.edmunds.com/bmw/${modelFormatted}/${carDetails.year}/" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ Edmunds Appraisal
-                </a>
-                <a href="https://www.nadaguides.com/Cars/${carDetails.year}/BMW/${modelFormatted}" target="_blank" style="color: #2d5b7b; display: block; margin: 5px 0;">
-                    ➤ NADA Guides
-                </a>
+            <div class="maintenance-info" style="margin-bottom: 12px;">
+                <strong>Maintenance & Reliability:</strong><br>
+                • Major Service Interval: ${getMajorServiceInterval(carDetails.make)}<br>
+                • Common Issues: ${getCommonIssues(carDetails.make, carDetails.model)}<br>
+                • Next Major Service: ${getNextMajorService(parseInt(carDetails.mileage), carDetails.make)}
             </div>
+
+            ${researchToolsHtml}
 
             <div style="font-size: 11px; color: #666; margin-top: 10px;">
-                Note: Values are estimates. Always verify pricing with multiple sources.
+                Note: Values are estimates. Always verify information with multiple sources.
             </div>
         </div>
     `;
     
     return response;
+}
+
+// Helper function for major service intervals
+function getMajorServiceInterval(make) {
+    const intervals = {
+        'BMW': '10,000 miles or 1 year',
+        'Mercedes-Benz': '10,000 miles or 1 year',
+        'Audi': '10,000 miles or 1 year',
+        'Toyota': '5,000-7,500 miles or 6 months',
+        'Honda': '7,500 miles or 1 year',
+        // Add more makes as needed
+        'default': '7,500 miles or 1 year'
+    };
+    return intervals[make] || intervals['default'];
+}
+
+// Helper function for common issues
+function getCommonIssues(make, model) {
+    const issues = {
+        'BMW': {
+            '3': 'Oil leaks, Cooling system, Electric window regulators',
+            'X1': 'Timing chain, Oil leaks, Suspension components',
+            'default': 'Oil leaks, Electrical systems'
+        },
+        'default': 'Check maintenance history and get pre-purchase inspection'
+    };
+    return issues[make]?.[model] || issues[make]?.['default'] || issues['default'];
+}
+
+// Helper function to calculate next major service
+function getNextMajorService(mileage, make) {
+    if (!mileage) return 'Unknown - mileage not provided';
+    
+    const serviceIntervals = {
+        'BMW': 10000,
+        'Mercedes-Benz': 10000,
+        'Audi': 10000,
+        'Toyota': 5000,
+        'Honda': 7500,
+        'default': 7500
+    };
+    
+    const interval = serviceIntervals[make] || serviceIntervals['default'];
+    const nextService = Math.ceil(mileage / interval) * interval;
+    return `${nextService.toLocaleString()} miles`;
 }
 
 // Function to inject KBB price into the page
@@ -449,58 +538,56 @@ function injectKBBPrice(kbbPrice) {
     return true;
 }
 
-// Modified main function with better logging
+// Main function with cleaner logging
 async function main() {
-    console.log("Extension main function started");
+    console.log("Extension started");
     
-    // Initial delay to let Facebook load
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Try multiple times with increasing delays
-    for (let i = 0; i < 5; i++) {
-        console.log(`\n=== Attempt ${i + 1} to extract details ===`);
-        
-        // Test price extraction separately
-        const price = extractPrice();
-        console.log("Extracted price:", price);
+    try {
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         const carDetails = extractCarDetails();
         if (carDetails) {
-            console.log("Successfully extracted car details:", carDetails);
-            const kbbPrice = await getKBBPrice(carDetails);
-            const injected = injectKBBPrice(kbbPrice);
+            console.log("Car details found:", {
+                year: carDetails.year,
+                make: carDetails.make,
+                model: carDetails.model,
+                mileage: carDetails.mileage,
+                price: carDetails.price
+            });
             
-            if (injected) {
-                console.log("Successfully injected KBB information");
-                return;
-            }
+            const kbbPrice = await getKBBPrice(carDetails);
+            injectKBBPrice(kbbPrice);
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+        console.error("Error:", error.message);
     }
 }
 
-// URL change detection
+// URL change detection with cleaner logging
 let lastUrl = location.href;
 const observer = new MutationObserver(() => {
     if (location.href !== lastUrl) {
-        console.log("URL changed from", lastUrl, "to", location.href);
         lastUrl = location.href;
         if (location.href.includes('/marketplace/item/')) {
-            console.log("Detected car listing page, running main function");
             main();
         }
     }
 });
 
-// Start observing
-observer.observe(document, { subtree: true, childList: true });
-
-// Initial run
-if (location.href.includes('/marketplace/item/')) {
-    console.log("Initial page is a car listing, running main function");
-    main();
+// Start observing with error handling
+try {
+    observer.observe(document, { subtree: true, childList: true });
+    if (location.href.includes('/marketplace/item/')) {
+        main();
+    }
+} catch (error) {
+    console.error("Observer error:", error.message);
 }
 
 // Initialize
-injectHelperScript(); 
+injectHelperScript();
+
+// Add this helper function to clean up text
+function cleanText(text) {
+    return text.trim().replace(/\s+/g, ' ');
+} 
