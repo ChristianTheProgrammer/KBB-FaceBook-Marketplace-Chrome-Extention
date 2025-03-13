@@ -46,11 +46,48 @@ function extractCarDetails() {
     const title = titleElement.textContent.trim();
     console.debug("Found title:", title);
     
-    // Extract car details from title
-    const carRegex = /(\d{4})\s+([\w-]+)(?:\s+|-)([\w]+)(?:\s+([\w-]+))?/i;
+    // Extract car details from title with improved regex for full model names
+    // This regex captures: year, make, and everything after as potential model/trim
+    const carRegex = /(\d{4})\s+([\w-]+)\s+(.*?)(?:\s*$)/i;
     const match = title.match(carRegex);
     
     if (!match) return null;
+
+    // Extract the full model and trim information
+    const year = match[1];
+    const make = match[2].replace(/-/g, ' ');
+    let model = '';
+    let trim = '';
+
+    // Process the remaining text to separate model and trim
+    const remainingText = match[3].trim();
+    
+    // Common model/trim patterns
+    const modelTrimPatterns = {
+        // BMW: "3 Series 328i", "M3 Competition"
+        BMW: /^(\d\s*(?:Series|M|X|Z)\s*\d*)\s*(.*?)$/i,
+        // Mercedes: "C-Class C300", "GLE 450"
+        Mercedes: /^([A-Z]-?Class|[A-Z]{2,3})\s*(.*?)$/i,
+        // Audi: "A4 Premium Plus", "Q5 Prestige"
+        Audi: /^([A-Z]\d|[A-Z]{2}\d)\s*(.*?)$/i,
+        // Toyota: "Camry SE", "RAV4 Limited"
+        Toyota: /^(\w+)\s*(.*?)$/i,
+        // Honda: "Civic LX", "CR-V EX-L"
+        Honda: /^([\w-]+)\s*(.*?)$/i,
+        // Default pattern for other makes
+        default: /^([\w-]+)\s*(.*?)$/i
+    };
+
+    // Get the appropriate pattern for the make or use default
+    const pattern = modelTrimPatterns[make] || modelTrimPatterns.default;
+    const modelMatch = remainingText.match(pattern);
+
+    if (modelMatch) {
+        model = modelMatch[1].trim();
+        trim = modelMatch[2].trim();
+    } else {
+        model = remainingText;
+    }
 
     // Extract mileage and price
     const mileage = extractMileage();
@@ -58,19 +95,19 @@ function extractCarDetails() {
 
     // Log the extracted details
     console.debug("Extracted details:", {
-        year: match[1],
-        make: match[2],
-        model: match[3],
-        trim: match[4] || '',
+        year,
+        make,
+        model,
+        trim,
         mileage,
         price
     });
 
     return {
-        year: match[1],
-        make: match[2].replace(/-/g, ' '),
-        model: match[3],
-        trim: match[4] || '',
+        year,
+        make,
+        model,
+        trim,
         mileage,
         price
     };
@@ -319,6 +356,55 @@ async function getMarketConditions(make, model) {
     return null;
 }
 
+// Helper function to format model names for URLs
+function formatModelForUrl(make, model, site) {
+    const makeL = make.toLowerCase();
+    const modelL = model.toLowerCase();
+
+    // Common model name mappings
+    const modelMappings = {
+        // BMW
+        '3': '3-series',
+        '5': '5-series',
+        '7': '7-series',
+        // Mercedes
+        'c': 'c-class',
+        'e': 'e-class',
+        's': 's-class',
+        // Lexus
+        'is': 'is',
+        'es': 'es',
+        'rx': 'rx',
+        // Default: just use the model name as is
+        'default': modelL
+    };
+
+    // Site-specific formatting
+    switch(site) {
+        case 'kbb':
+        case 'edmunds':
+            // These sites typically use hyphenated names
+            return modelMappings[modelL] || modelL.replace(/\s+/g, '-');
+        case 'nada':
+            // NADA typically uses spaces
+            return modelMappings[modelL] || modelL.replace(/-/g, ' ');
+        case 'autotrader':
+            // AutoTrader uses specific formats for certain makes
+            if (makeL === 'bmw' && modelL.match(/^\d/)) {
+                return modelMappings[modelL.charAt(0)] || modelL;
+            }
+            return modelL.replace(/\s+/g, '-');
+        case 'cargurus':
+            // CarGurus uses capitalized formats
+            if (makeL === 'bmw' && modelL.match(/^\d/)) {
+                return (modelMappings[modelL.charAt(0)] || modelL).replace(/-/g, ' ');
+            }
+            return modelL;
+        default:
+            return modelL;
+    }
+}
+
 // Function to create KBB URL and price estimate
 async function getKBBPrice(carDetails) {
     console.debug("Generating KBB information for:", carDetails);
@@ -327,31 +413,19 @@ async function getKBBPrice(carDetails) {
     const makeEncoded = encodeURIComponent(carDetails.make);
     const modelEncoded = encodeURIComponent(carDetails.model);
     const yearEncoded = encodeURIComponent(carDetails.year);
-    const fullModelName = `${carDetails.year} ${carDetails.make} ${carDetails.model}`;
+    const fullModelName = `${carDetails.year} ${carDetails.make} ${carDetails.model}${carDetails.trim ? ' ' + carDetails.trim : ''}`;
     const zipCode = '60601'; // Default to Chicago
 
     // Construct specific URLs for each service
     const urls = {
-        // KBB URL with specific model handling
-        kbb: (() => {
-            let url = `https://www.kbb.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/`;
-            if (carDetails.make === 'BMW') {
-                switch(carDetails.model.toLowerCase()) {
-                    case '3': return `https://www.kbb.com/bmw/3-series/${carDetails.year}/`;
-                    case '5': return `https://www.kbb.com/bmw/5-series/${carDetails.year}/`;
-                    case 'x1': return `https://www.kbb.com/bmw/x1/${carDetails.year}/`;
-                    case 'x3': return `https://www.kbb.com/bmw/x3/${carDetails.year}/`;
-                    case 'x5': return `https://www.kbb.com/bmw/x5/${carDetails.year}/`;
-                    default: url += `${carDetails.model.toLowerCase().replace(/\s+/g, '-')}/${carDetails.year}/`;
-                }
-            } else {
-                url += `${carDetails.model.toLowerCase().replace(/\s+/g, '-')}/${carDetails.year}/`;
-            }
-            return url;
-        })(),
-        carfax: `https://www.carfax.com/vehicle/${carDetails.year}/${makeEncoded}/${modelEncoded}`,
-        edmunds: `https://www.edmunds.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/${carDetails.model.toLowerCase().replace(/\s+/g, '-')}/${carDetails.year}/review/`,
-        carsCom: `https://www.cars.com/shopping/results/?dealer_id=&keyword=${encodeURIComponent(fullModelName)}&list_price_max=${Math.ceil((carDetails.price || 20000) * 1.2)}&list_price_min=${Math.floor((carDetails.price || 20000) * 0.8)}&maximum_distance=100&stock_type=used&zip=${zipCode}`
+        kbb: `https://www.kbb.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/${formatModelForUrl(carDetails.make, carDetails.model, 'kbb')}/${carDetails.year}/`,
+        carfax: 'https://www.carfax.com/cars-for-sale',
+        edmunds: `https://www.edmunds.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/${formatModelForUrl(carDetails.make, carDetails.model, 'edmunds')}/${carDetails.year}/review/`,
+        carsCom: `https://www.cars.com/shopping/results/?dealer_id=&keyword=${encodeURIComponent(fullModelName)}&list_price_max=${Math.ceil((carDetails.price || 20000) * 1.2)}&list_price_min=${Math.floor((carDetails.price || 20000) * 0.8)}&maximum_distance=100&stock_type=used&zip=${zipCode}`,
+        autotrader: `https://www.autotrader.com/cars-for-sale/all-cars/${carDetails.year}/${carDetails.make.toLowerCase()}/${formatModelForUrl(carDetails.make, carDetails.model, 'autotrader')}/chicago-il?year1=${carDetails.year}&zip=${zipCode}`,
+        nada: `https://www.nadaguides.com/Cars/${yearEncoded}/${makeEncoded}/${encodeURIComponent(formatModelForUrl(carDetails.make, carDetails.model, 'nada'))}`,
+        cargurus: `https://www.cargurus.com/Cars/inventorylisting/viewDetailsFilterViewInventoryListing.action?zip=${zipCode}&showNegotiable=true&sortDir=ASC&sourceContext=untrackedExternal&distance=50&entitySelectingHelper.selectedEntity=${carDetails.year}+${makeEncoded}+${encodeURIComponent(formatModelForUrl(carDetails.make, carDetails.model, 'cargurus'))}`,
+        consumerReports: `https://www.consumerreports.org/cars/${carDetails.make.toLowerCase()}/${formatModelForUrl(carDetails.make, carDetails.model, 'consumerReports')}/${carDetails.year}/overview/`
     };
 
     // Calculate various metrics
@@ -363,9 +437,14 @@ async function getKBBPrice(carDetails) {
     if (carDetails.mileage) {
         const expectedMileage = vehicleAge * 12000; // Industry standard
         const mileageDifference = carDetails.mileage - expectedMileage;
+        const mileageStatus = Math.abs(mileageDifference) > 5000 
+            ? (mileageDifference > 0 ? 'Higher than average' : 'Lower than average')
+            : 'Average';
+            
         mileageAnalysis = `
             • Expected Mileage: ${expectedMileage.toLocaleString()} miles<br>
-            • Mileage Difference: ${mileageDifference > 0 ? '+' : ''}${mileageDifference.toLocaleString()} miles
+            • Actual Mileage: ${carDetails.mileage.toLocaleString()} miles<br>
+            • Status: ${mileageStatus} (${Math.abs(mileageDifference).toLocaleString()} miles ${mileageDifference > 0 ? 'above' : 'below'} average)
         `;
     } else {
         mileageAnalysis = `
@@ -391,18 +470,42 @@ async function getKBBPrice(carDetails) {
             </div>
 
             <div class="resources">
-                <strong>Research Tools:</strong><br>
+                <strong>Pricing Resources:</strong><br>
                 <a href="${urls.kbb}" target="_blank">
-                    ➤ Kelly Blue Book Value
+                    ➤ Kelly Blue Book Valuation
                 </a><br>
-                <a href="${urls.carfax}" target="_blank">
-                    ➤ CARFAX History Report
+                <a href="${urls.nada}" target="_blank">
+                    ➤ NADA Guides Price
                 </a><br>
                 <a href="${urls.edmunds}" target="_blank">
                     ➤ Edmunds Expert Review
-                </a><br>
+                </a>
+            </div>
+
+            <div class="resources">
+                <strong>Vehicle History:</strong><br>
+                <a href="${urls.carfax}" target="_blank">
+                    ➤ CARFAX Vehicle Search
+                </a>
+            </div>
+
+            <div class="resources">
+                <strong>Market Comparison:</strong><br>
                 <a href="${urls.carsCom}" target="_blank">
-                    ➤ Similar Cars for Sale
+                    ➤ Cars.com Similar Listings
+                </a><br>
+                <a href="${urls.autotrader}" target="_blank">
+                    ➤ AutoTrader Listings
+                </a><br>
+                <a href="${urls.cargurus}" target="_blank">
+                    ➤ CarGurus Price Analysis
+                </a>
+            </div>
+
+            <div class="resources">
+                <strong>Additional Research:</strong><br>
+                <a href="${urls.consumerReports}" target="_blank">
+                    ➤ Consumer Reports Review
                 </a>
             </div>
         </div>
