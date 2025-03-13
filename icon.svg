@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="64" cy="64" r="60" fill="#4267B2"/>
+    
+    <!-- KBB text -->
+    <text x="64" y="55" font-family="Arial Black" font-size="32" fill="white" text-anchor="middle">KBB</text>
+    
+    <!-- Price tag icon -->
+    <path d="M40 75 L88 75 L88 85 L64 95 L40 85 Z" fill="white"/>
+    <text x="64" y="83" font-family="Arial" font-size="14" fill="#4267B2" text-anchor="middle">PRICE</text>
+</svg> 

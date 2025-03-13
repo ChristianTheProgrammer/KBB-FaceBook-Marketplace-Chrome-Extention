@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "KBB Facebook Marketplace Price Checker",
+  "version": "1.0",
+  "description": "Shows Kelly Blue Book prices for cars listed on Facebook Marketplace",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.facebook.com/*",
+    "https://www.kbb.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.facebook.com/marketplace/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [{
+    "resources": ["inject.js"],
+    "matches": ["https://www.facebook.com/*"]
+  }]
+} 

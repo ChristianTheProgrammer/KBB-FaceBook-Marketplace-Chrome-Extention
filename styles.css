@@ -1,0 +1,11 @@
+#kbb-price-container {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 1000 !important;
+}
+
+#kbb-price-container * {
+    visibility: visible !important;
+    opacity: 1 !important;
+} 
