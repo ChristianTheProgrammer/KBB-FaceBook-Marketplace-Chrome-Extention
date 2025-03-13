@@ -542,7 +542,7 @@ function injectKBBPrice(kbbPrice) {
     `;
 
     const title = document.createElement('div');
-    title.textContent = 'Kelly Blue Book Information';
+    title.textContent = 'Vehicle Market Analysis';
     title.style.cssText = `
         font-weight: 600;
         font-size: 16px;
