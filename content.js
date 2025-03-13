@@ -385,21 +385,11 @@ function formatModelForUrl(make, model, site) {
         case 'edmunds':
             // These sites typically use hyphenated names
             return modelMappings[modelL] || modelL.replace(/\s+/g, '-');
-        case 'nada':
-            // NADA typically uses spaces
-            return modelMappings[modelL] || modelL.replace(/-/g, ' ');
-        case 'autotrader':
-            // AutoTrader uses specific formats for certain makes
-            if (makeL === 'bmw' && modelL.match(/^\d/)) {
-                return modelMappings[modelL.charAt(0)] || modelL;
-            }
+        case 'autotempest':
+            // AutoTempest only allows letters, numbers, and periods
+            return modelL.replace(/[^a-zA-Z0-9.]/g, '');
+        case 'jdpower':
             return modelL.replace(/\s+/g, '-');
-        case 'cargurus':
-            // CarGurus uses capitalized formats
-            if (makeL === 'bmw' && modelL.match(/^\d/)) {
-                return (modelMappings[modelL.charAt(0)] || modelL).replace(/-/g, ' ');
-            }
-            return modelL;
         default:
             return modelL;
     }
@@ -411,7 +401,7 @@ async function getKBBPrice(carDetails) {
     
     // Format URLs and search parameters
     const makeEncoded = encodeURIComponent(carDetails.make);
-    const modelEncoded = encodeURIComponent(carDetails.model);
+    const modelEncoded = encodeURIComponent(formatModelForUrl(carDetails.make, carDetails.model, 'autotempest'));
     const yearEncoded = encodeURIComponent(carDetails.year);
     const fullModelName = `${carDetails.year} ${carDetails.make} ${carDetails.model}${carDetails.trim ? ' ' + carDetails.trim : ''}`;
     const zipCode = '60601'; // Default to Chicago
@@ -419,13 +409,10 @@ async function getKBBPrice(carDetails) {
     // Construct specific URLs for each service
     const urls = {
         kbb: `https://www.kbb.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/${formatModelForUrl(carDetails.make, carDetails.model, 'kbb')}/${carDetails.year}/`,
-        carfax: 'https://www.carfax.com/cars-for-sale',
         edmunds: `https://www.edmunds.com/${carDetails.make.toLowerCase().replace(/\s+/g, '-')}/${formatModelForUrl(carDetails.make, carDetails.model, 'edmunds')}/${carDetails.year}/review/`,
-        carsCom: `https://www.cars.com/shopping/results/?dealer_id=&keyword=${encodeURIComponent(fullModelName)}&list_price_max=${Math.ceil((carDetails.price || 20000) * 1.2)}&list_price_min=${Math.floor((carDetails.price || 20000) * 0.8)}&maximum_distance=100&stock_type=used&zip=${zipCode}`,
-        autotrader: `https://www.autotrader.com/cars-for-sale/all-cars/${carDetails.year}/${carDetails.make.toLowerCase()}/${formatModelForUrl(carDetails.make, carDetails.model, 'autotrader')}/chicago-il?year1=${carDetails.year}&zip=${zipCode}`,
-        nada: `https://www.nadaguides.com/Cars/${yearEncoded}/${makeEncoded}/${encodeURIComponent(formatModelForUrl(carDetails.make, carDetails.model, 'nada'))}`,
-        cargurus: `https://www.cargurus.com/Cars/inventorylisting/viewDetailsFilterViewInventoryListing.action?zip=${zipCode}&showNegotiable=true&sortDir=ASC&sourceContext=untrackedExternal&distance=50&entitySelectingHelper.selectedEntity=${carDetails.year}+${makeEncoded}+${encodeURIComponent(formatModelForUrl(carDetails.make, carDetails.model, 'cargurus'))}`,
-        consumerReports: `https://www.consumerreports.org/cars/${carDetails.make.toLowerCase()}/${formatModelForUrl(carDetails.make, carDetails.model, 'consumerReports')}/${carDetails.year}/overview/`
+        consumerReports: `https://www.consumerreports.org/cars/${carDetails.make.toLowerCase()}/${formatModelForUrl(carDetails.make, carDetails.model, 'consumerReports')}/${carDetails.year}/overview/`,
+        autotempest: `https://www.autotempest.com/results?make=${makeEncoded}&model=${modelEncoded}&zip=${zipCode}&radius=100&years=${yearEncoded}-${yearEncoded}`,
+        jdpower: `https://www.jdpower.com/cars/${yearEncoded}/${makeEncoded}/${formatModelForUrl(carDetails.make, carDetails.model, 'jdpower')}`
     };
 
     // Calculate various metrics
@@ -470,42 +457,25 @@ async function getKBBPrice(carDetails) {
             </div>
 
             <div class="resources">
-                <strong>Pricing Resources:</strong><br>
+                <strong>Pricing & Reviews:</strong><br>
                 <a href="${urls.kbb}" target="_blank">
-                    ➤ Kelly Blue Book Valuation
-                </a><br>
-                <a href="${urls.nada}" target="_blank">
-                    ➤ NADA Guides Price
+                    ➤ Kelley Blue Book Valuation
                 </a><br>
                 <a href="${urls.edmunds}" target="_blank">
                     ➤ Edmunds Expert Review
-                </a>
-            </div>
-
-            <div class="resources">
-                <strong>Vehicle History:</strong><br>
-                <a href="${urls.carfax}" target="_blank">
-                    ➤ CARFAX Vehicle Search
-                </a>
-            </div>
-
-            <div class="resources">
-                <strong>Market Comparison:</strong><br>
-                <a href="${urls.carsCom}" target="_blank">
-                    ➤ Cars.com Similar Listings
                 </a><br>
-                <a href="${urls.autotrader}" target="_blank">
-                    ➤ AutoTrader Listings
-                </a><br>
-                <a href="${urls.cargurus}" target="_blank">
-                    ➤ CarGurus Price Analysis
-                </a>
-            </div>
-
-            <div class="resources">
-                <strong>Additional Research:</strong><br>
                 <a href="${urls.consumerReports}" target="_blank">
                     ➤ Consumer Reports Review
+                </a><br>
+                <a href="${urls.jdpower}" target="_blank">
+                    ➤ JD Power Ratings
+                </a>
+            </div>
+
+            <div class="resources">
+                <strong>Market Search:</strong><br>
+                <a href="${urls.autotempest}" target="_blank">
+                    ➤ AutoTempest Price Comparison
                 </a>
             </div>
         </div>
