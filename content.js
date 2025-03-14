@@ -74,7 +74,19 @@ function extractCarDetails() {
         Toyota: /^(\w+)\s*(.*?)$/i,
         // Honda: "Civic LX", "CR-V EX-L"
         Honda: /^([\w-]+)\s*(.*?)$/i,
-        // Default pattern for other makes
+        // Adding more makes with specific patterns
+        Lexus: /^([A-Z]{2,3}\d*(?:\s?[FSh])?)\s*(.*?)$/i,  // For models like IS350, RX350, ES300h
+        Infiniti: /^([QGJ][A-Z]?\d+x?)\s*(.*?)$/i,  // For models like Q50, QX60, G37
+        Volkswagen: /^((?:Golf|Jetta|Passat|Atlas|Tiguan|ID\d?))\s*(.*?)$/i,
+        Porsche: /^((?:911|Cayenne|Macan|Panamera|Boxster|Cayman))\s*(.*?)$/i,
+        Chevrolet: /^((?:Malibu|Cruze|Equinox|Silverado|Tahoe|Corvette))\s*(.*?)$/i,
+        Ford: /^((?:F-?\d{3}|Mustang|Explorer|Escape|Focus|Fusion))\s*(.*?)$/i,
+        Hyundai: /^((?:Elantra|Sonata|Tucson|Santa Fe|Kona|Palisade))\s*(.*?)$/i,
+        Kia: /^((?:Forte|Optima|Sorento|Telluride|Soul|Sportage))\s*(.*?)$/i,
+        Subaru: /^((?:Impreza|Legacy|Outback|Forester|Crosstrek|WRX))\s*(.*?)$/i,
+        Nissan: /^((?:Altima|Maxima|Rogue|Murano|Pathfinder|[GZ]-?TR?))\s*(.*?)$/i,
+        Acura: /^([A-Z]{2,3}[X]?)\s*(.*?)$/i,  // For models like MDX, RDX, TLX
+        // Default pattern remains the same
         default: /^([\w-]+)\s*(.*?)$/i
     };
 
