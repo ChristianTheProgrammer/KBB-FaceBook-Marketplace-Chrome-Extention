@@ -10,6 +10,93 @@
     opacity: 1 !important;
 }
 
+/* Improved dark mode support */
+@media (prefers-color-scheme: dark) {
+    #kbb-price-container {
+        background-color: #242526 !important;
+        color: #e4e6eb !important;
+    }
+    
+    #kbb-loading {
+        background-color: #242526 !important;
+        color: #e4e6eb !important;
+    }
+    
+    .loading-spinner {
+        border-color: #3a3b3c !important;
+        border-top-color: #2d88ff !important;
+    }
+}
+
+/* Tooltip styles */
+.kbb-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 1001;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+*:hover > .kbb-tooltip {
+    opacity: 1;
+}
+
+/* Keyboard shortcut indicator */
+.keyboard-shortcut {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.1);
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .keyboard-shortcut {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* Improved animations */
+.kbb-details {
+    font-size: 14px;
+    line-height: 1.4;
+    transition: all 0.3s ease;
+}
+
+.kbb-details > div {
+    transform-origin: top;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Improved focus states for accessibility */
+.kbb-details a:focus {
+    outline: 2px solid #1877f2;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Loading state improvements */
 .loading-spinner {
     width: 20px;
     height: 20px;
@@ -17,16 +104,26 @@
     border-top: 2px solid #3498db;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+/* Error message improvements */
+#kbb-error {
+    animation: slideIn 0.3s ease-out;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
 }
 
-.kbb-details {
-    font-size: 14px;
-    line-height: 1.4;
+/* Responsive design improvements */
+@media (max-width: 768px) {
+    #kbb-price-container {
+        width: 90% !important;
+        right: 5% !important;
+        left: 5% !important;
+    }
+    
+    .kbb-details {
+        font-size: 13px;
+    }
 }
 
 .kbb-details a {
@@ -53,17 +150,7 @@
     background-color: rgba(255, 255, 255, 0.05);
 }
 
-#kbb-error {
-    animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 } 

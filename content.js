@@ -1,18 +1,45 @@
+// Utility functions first
+// Debounce helper function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Clean text helper
+function cleanText(text) {
+    return text.trim().replace(/\s+/g, ' ');
+}
+
 // Suppress third-party cookie warnings
 const originalConsoleWarn = console.warn;
 console.warn = function(...args) {
     if (args[0]?.includes('third-party cookie')) return;
+    if (args[0]?.includes('googletagmanager')) return;
     originalConsoleWarn.apply(console, args);
 };
 
-// Function to inject our helper script
+// Function to inject our helper script with security improvements
 function injectHelperScript() {
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('inject.js');
-    script.onload = function() {
-        this.remove();
-    };
-    (document.head || document.documentElement).appendChild(script);
+    try {
+        const script = document.createElement('script');
+        script.src = chrome.runtime.getURL('inject.js');
+        script.onload = function() {
+            this.remove();
+        };
+        // Add security attributes
+        script.setAttribute('nonce', '');  // CSP nonce
+        script.setAttribute('crossorigin', 'anonymous');
+        (document.head || document.documentElement).appendChild(script);
+    } catch (error) {
+        console.error('Failed to inject helper script:', error);
+    }
 }
 
 // Debug helper function to log DOM structure
@@ -32,26 +59,47 @@ function debugLogDOMStructure() {
     console.log("4. Potential car-related text found:", carRelatedText);
 }
 
-// Cache for storing extracted car details
-const carDetailsCache = new Map();
-
-// Debounce helper function
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
+// Cache management with size limit and expiration
+const carDetailsCache = {
+    data: new Map(),
+    maxSize: 100,
+    expirationTime: 30 * 60 * 1000, // 30 minutes
+    
+    set(key, value) {
+        if (this.data.size >= this.maxSize) {
+            const oldestKey = this.data.keys().next().value;
+            this.data.delete(oldestKey);
+        }
+        this.data.set(key, {
+            value,
+            timestamp: Date.now()
+        });
+    },
+    
+    get(key) {
+        const item = this.data.get(key);
+        if (!item) return null;
+        
+        if (Date.now() - item.timestamp > this.expirationTime) {
+            this.data.delete(key);
+            return null;
+        }
+        return item.value;
+    },
+    
+    has(key) {
+        return this.get(key) !== null;
+    },
+    
+    clear() {
+        this.data.clear();
+    }
+};
 
 // Rate limiting helper
 const rateLimiter = {
     lastCall: 0,
-    minInterval: 1000, // Minimum time between API calls in ms
+    minInterval: 1000,
     canMakeCall() {
         const now = Date.now();
         if (now - this.lastCall >= this.minInterval) {
@@ -61,6 +109,106 @@ const rateLimiter = {
         return false;
     }
 };
+
+// User preferences management
+const userPreferences = {
+    async load() {
+        try {
+            const stored = await chrome.storage.local.get('kbbPreferences');
+            return stored.kbbPreferences || {};
+        } catch (e) {
+            console.error('Error loading preferences:', e);
+            return {};
+        }
+    },
+    
+    async save(prefs) {
+        try {
+            await chrome.storage.local.set({ kbbPreferences: prefs });
+        } catch (e) {
+            console.error('Error saving preferences:', e);
+        }
+    }
+};
+
+// Improved dark mode detection
+function isDarkMode() {
+    return document.documentElement.classList.contains('__fb-dark-mode') || 
+           document.body.classList.contains('__fb-dark-mode') ||
+           document.querySelector('body[class*="dark"]') !== null ||
+           window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+// Retry logic for failed extractions
+async function retryOperation(operation, maxRetries = 3, delay = 1000) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (i === maxRetries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
+// Enhanced error messages with suggestions
+function getErrorMessageWithSuggestion(error) {
+    const errorMessages = {
+        'Could not extract car details': {
+            message: 'Unable to find car details in the listing',
+            suggestion: 'Make sure you\'re on a car listing page and the title contains year, make, and model'
+        },
+        'Rate limit exceeded': {
+            message: 'Too many requests',
+            suggestion: 'Please wait a moment before checking another listing'
+        },
+        default: {
+            message: 'An error occurred',
+            suggestion: 'Try refreshing the page or checking another listing'
+        }
+    };
+
+    const errorType = Object.keys(errorMessages).find(key => error.includes(key)) || 'default';
+    return errorMessages[errorType];
+}
+
+// Keyboard shortcuts handler
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Alt + K to toggle the KBB price container
+        if (e.altKey && e.key.toLowerCase() === 'k') {
+            const container = document.getElementById('kbb-price-container');
+            if (container) {
+                container.style.display = container.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+        
+        // Alt + R to refresh the data
+        if (e.altKey && e.key.toLowerCase() === 'r') {
+            carDetailsCache.clear();
+            main();
+        }
+    });
+}
+
+// Add tooltips to UI elements
+function addTooltip(element, text) {
+    element.title = text;
+    element.setAttribute('data-tooltip', text);
+    element.style.position = 'relative';
+    
+    element.addEventListener('mouseenter', (e) => {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'kbb-tooltip';
+        tooltip.textContent = text;
+        element.appendChild(tooltip);
+    });
+    
+    element.addEventListener('mouseleave', () => {
+        const tooltip = element.querySelector('.kbb-tooltip');
+        if (tooltip) tooltip.remove();
+    });
+}
 
 // Function to show loading state
 function showLoadingState() {
@@ -745,14 +893,16 @@ function injectKBBPrice(kbbPrice) {
     return true;
 }
 
-// Main function with improved error handling and caching
+// Update main function with retry logic and enhanced error handling
 async function main() {
     console.log("Extension started");
     
     try {
         const loadingIndicator = showLoadingState();
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
+        
+        // Load user preferences
+        const prefs = await userPreferences.load();
+        
         // Check cache first
         const currentUrl = location.href;
         if (carDetailsCache.has(currentUrl)) {
@@ -762,13 +912,14 @@ async function main() {
             return;
         }
 
-        const carDetails = extractCarDetails();
-        if (!carDetails) {
-            throw new Error("Could not extract car details from the listing");
-        }
+        const carDetails = await retryOperation(async () => {
+            const details = extractCarDetails();
+            if (!details) throw new Error("Could not extract car details");
+            return details;
+        });
 
         if (!rateLimiter.canMakeCall()) {
-            throw new Error("Please wait a moment before checking another listing");
+            throw new Error("Rate limit exceeded");
         }
 
         const kbbPrice = await getKBBPrice(carDetails);
@@ -778,38 +929,44 @@ async function main() {
 
     } catch (error) {
         console.error("Error:", error.message);
-        showErrorMessage(error.message);
+        const { message, suggestion } = getErrorMessageWithSuggestion(error.message);
+        showErrorMessage(`${message}. ${suggestion}`);
     }
 }
 
-// Debounced URL change detection
-const debouncedMain = debounce(main, 500);
+// Initialize with proper error handling
+async function initialize() {
+    try {
+        setupKeyboardShortcuts();
+        injectHelperScript();
+        
+        // Set up observer with error handling
+        const observer = new MutationObserver(debounce(() => {
+            if (location.href !== lastUrl) {
+                lastUrl = location.href;
+                if (location.href.includes('/marketplace/item/')) {
+                    main();
+                }
+            }
+        }, 500));
 
-// URL change detection with debouncing
-let lastUrl = location.href;
-const observer = new MutationObserver(() => {
-    if (location.href !== lastUrl) {
-        lastUrl = location.href;
+        observer.observe(document, { 
+            subtree: true, 
+            childList: true,
+            attributes: false,
+            characterData: false
+        });
+
+        // Initial check
         if (location.href.includes('/marketplace/item/')) {
-            debouncedMain();
+            main();
         }
+    } catch (error) {
+        console.error('Initialization error:', error);
+        showErrorMessage('Failed to initialize extension. Please refresh the page.');
     }
-});
-
-// Start observing with error handling
-try {
-    observer.observe(document, { subtree: true, childList: true });
-    if (location.href.includes('/marketplace/item/')) {
-        main();
-    }
-} catch (error) {
-    console.error("Observer error:", error.message);
 }
 
-// Initialize
-injectHelperScript();
-
-// Add this helper function to clean up text
-function cleanText(text) {
-    return text.trim().replace(/\s+/g, ' ');
-} 
+// Start the extension
+let lastUrl = location.href;
+initialize(); 

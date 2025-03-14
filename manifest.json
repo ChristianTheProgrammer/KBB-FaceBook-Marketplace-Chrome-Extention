@@ -4,7 +4,8 @@
   "version": "1.0",
   "description": "Shows Kelly Blue Book prices for cars listed on Facebook Marketplace",
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "storage"
   ],
   "host_permissions": [
     "https://www.facebook.com/*"
@@ -12,13 +13,18 @@
   "content_scripts": [{
     "matches": ["https://www.facebook.com/marketplace/*"],
     "js": ["content.js"],
+    "css": ["styles.css"],
     "run_at": "document_end"
   }],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'; frame-src 'none'",
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals"
   },
   "web_accessible_resources": [{
     "resources": ["inject.js"],
     "matches": ["https://www.facebook.com/*"]
-  }]
+  }],
+  "action": {
+    "default_icon": "icon.svg"
+  }
 } 
