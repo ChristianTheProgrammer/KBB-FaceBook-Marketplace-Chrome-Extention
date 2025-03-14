@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Facebook Vehicle Market Analysis",
   "version": "1.0",
-  "description": "This Chrome extension enhances Facebook Marketplace by integrating Kelley Blue Book (KBB) vehicle pricing insights directly into car listings. It automatically extracts key vehicle details, such as year, make, model, trim, mileage, and price, providing users with an estimated market value and links to trusted valuation sources. The extension ensures seamless browsing by updating dynamically as users navigate through listings without requiring page refreshes.",
+  "description": "Enhances Facebook Marketplace car listings with price insights, market analysis, and links to multiple valuation sources.",
   "permissions": [
     "activeTab",
     "storage"
