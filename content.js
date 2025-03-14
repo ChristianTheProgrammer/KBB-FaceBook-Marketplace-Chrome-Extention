@@ -673,14 +673,14 @@ async function getKBBPrice(carDetails) {
             : 'Average';
             
         mileageAnalysis = `
-            • Expected Mileage: ${expectedMileage.toLocaleString()} miles<br>
-            • Actual Mileage: ${carDetails.mileage.toLocaleString()} miles<br>
-            • Status: ${mileageStatus} (${Math.abs(mileageDifference).toLocaleString()} miles ${mileageDifference > 0 ? 'above' : 'below'} average)
+            • 🎯 Expected Mileage: ${expectedMileage.toLocaleString()} miles<br>
+            • 📍 Actual Mileage: ${carDetails.mileage.toLocaleString()} miles<br>
+            • 📊 Status: ${mileageStatus} (${Math.abs(mileageDifference).toLocaleString()} miles ${mileageDifference > 0 ? 'above' : 'below'} average)
         `;
     } else {
         mileageAnalysis = `
-            • Expected Mileage: ${(vehicleAge * 12000).toLocaleString()} miles<br>
-            • Actual Mileage: Not available
+            • 🎯 Expected Mileage: ${(vehicleAge * 12000).toLocaleString()} miles<br>
+            • 📍 Actual Mileage: Not available
         `;
     }
     
@@ -688,38 +688,40 @@ async function getKBBPrice(carDetails) {
     const response = `
         <div class="kbb-details">
             <div class="car-info">
-                <strong>Vehicle Details:</strong><br>
+                <strong>🚗 Vehicle Details:</strong><br>
                 ${carDetails.year} ${carDetails.make} ${carDetails.model} ${carDetails.trim}<br>
-                ${carDetails.mileage ? `Mileage: ${carDetails.mileage.toLocaleString()} miles<br>` : 'Mileage: Not available<br>'}
-                ${carDetails.price ? `Listed Price: $${carDetails.price.toLocaleString()}` : 'Price: Not listed'}
+                ${carDetails.mileage ? `📊 Mileage: ${carDetails.mileage.toLocaleString()} miles<br>` : '📊 Mileage: Not available<br>'}
+                ${carDetails.price ? `💰 Listed Price: $${carDetails.price.toLocaleString()}` : '💰 Price: Not listed'}
             </div>
             
             <div class="market-analysis">
-                <strong>Market Analysis:</strong><br>
-                • Vehicle Age: ${vehicleAge} years<br>
-                ${mileageAnalysis}
+                <strong>📈 Market Analysis:</strong><br>
+                • 📅 Vehicle Age: ${vehicleAge} years<br>
+                ${mileageAnalysis.replace('• Expected Mileage:', '• 🎯 Expected Mileage:')
+                               .replace('• Actual Mileage:', '• 📍 Actual Mileage:')
+                               .replace('• Status:', '• 📊 Status:')}
             </div>
 
             <div class="resources">
-                <strong>Pricing & Reviews:</strong><br>
+                <strong>📚 Pricing & Reviews:</strong><br>
                 <a href="${urls.kbb}" target="_blank">
-                    ➤ Kelley Blue Book Valuation
+                    📘 Kelley Blue Book Valuation
                 </a><br>
                 <a href="${urls.edmunds}" target="_blank">
-                    ➤ Edmunds Expert Review
+                    📗 Edmunds Expert Review
                 </a><br>
                 <a href="${urls.consumerReports}" target="_blank">
-                    ➤ Consumer Reports Review
+                    📕 Consumer Reports Review
                 </a><br>
                 <a href="${urls.jdpower}" target="_blank">
-                    ➤ JD Power Ratings
+                    🏆 JD Power Ratings
                 </a>
             </div>
 
             <div class="resources">
-                <strong>Market Search:</strong><br>
+                <strong>🔍 Market Search:</strong><br>
                 <a href="${urls.autotempest}" target="_blank">
-                    ➤ AutoTempest Price Comparison
+                    🌐 AutoTempest Price Comparison
                 </a>
             </div>
         </div>
