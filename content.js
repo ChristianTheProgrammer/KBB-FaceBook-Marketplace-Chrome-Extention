@@ -523,133 +523,102 @@ function injectKBBPrice(kbbPrice) {
         shadow: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.1)'
     };
 
-    // Create new container with Facebook-like styling
-    const priceContainer = document.createElement('div');
-    priceContainer.id = 'kbb-price-container';
-    priceContainer.style.cssText = `
+    // Create banner container
+    const bannerContainer = document.createElement('div');
+    bannerContainer.id = 'kbb-price-container';
+    bannerContainer.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
-        width: 340px;
         background-color: ${theme.background};
-        border-radius: 8px;
+        border-radius: 20px;
         box-shadow: 0 2px 12px ${theme.shadow};
         z-index: 9999;
-        max-height: 80vh;
-        overflow-y: auto;
         font-family: Helvetica, Arial, sans-serif;
         color: ${theme.text};
-        transition: all 0.2s ease;
+        transition: all 0.3s ease;
         border: 1px solid ${theme.border};
+        width: auto;
     `;
 
-    // Create header with Facebook-like styling
-    const header = document.createElement('div');
-    header.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        border-bottom: 1px solid ${theme.border};
-    `;
-
-    const title = document.createElement('div');
-    title.textContent = 'Vehicle Market Analysis';
-    title.style.cssText = `
-        font-weight: 600;
-        font-size: 16px;
-        color: ${theme.text};
-    `;
-
-    // Add Facebook-like close button
-    const closeButton = document.createElement('div');
-    closeButton.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" fill="${isDarkMode ? '#4e4f50' : '#e4e6eb'}"/>
-            <path d="M15 9L9 15M9 9L15 15" stroke="${isDarkMode ? '#e4e6eb' : '#050505'}" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-    `;
-    closeButton.style.cssText = `
-        cursor: pointer;
+    // Create collapsed pill view
+    const collapsedPill = document.createElement('div');
+    collapsedPill.style.cssText = `
         display: flex;
         align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        margin-left: 8px;
-    `;
-    closeButton.onmouseover = () => {
-        closeButton.style.backgroundColor = theme.hover;
-    };
-    closeButton.onmouseout = () => {
-        closeButton.style.backgroundColor = 'transparent';
-    };
-    closeButton.onclick = () => priceContainer.remove();
-
-    // Add header to container
-    header.appendChild(title);
-    header.appendChild(closeButton);
-    priceContainer.appendChild(header);
-
-    // Create content container with Facebook-like styling
-    const contentDiv = document.createElement('div');
-    contentDiv.style.cssText = `
-        padding: 16px;
-        font-size: 14px;
-        line-height: 1.5;
-    `;
-
-    // Format the content with Facebook-like styling
-    const formattedContent = kbbPrice.replace(/<div class="kbb-details".*?>/, '')
-        .replace(/<\/div>$/, '')
-        .replace(/<div class="car-info".*?>/, `
-            <div style="background-color: ${theme.cardBackground}; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-        `)
-        .replace(/<div class="market-analysis".*?>/, `
-            <div style="background-color: ${theme.cardBackground}; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-        `)
-        .replace(/<div class="maintenance-info".*?>/, `
-            <div style="background-color: ${theme.cardBackground}; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-        `)
-        .replace(/<div class="resources".*?>/, `
-            <div style="background-color: ${theme.cardBackground}; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
-        `)
-        .replace(/<strong>/g, `<strong style="color: ${theme.text}; font-weight: 600;">`)
-        .replace(/<a href/g, `<a style="color: ${theme.accent}; text-decoration: none; font-weight: 500;" href`)
-        .replace(/• /g, `<span style="color: ${theme.accent}; margin-right: 4px;">•</span> `);
-
-    contentDiv.innerHTML = formattedContent;
-    priceContainer.appendChild(contentDiv);
-
-    // Add Facebook-like footer
-    const footer = document.createElement('div');
-    footer.style.cssText = `
         padding: 8px 16px;
-        border-top: 1px solid ${theme.border};
-        font-size: 12px;
-        color: ${theme.secondaryText};
-        text-align: center;
+        cursor: pointer;
+        gap: 8px;
+        white-space: nowrap;
     `;
-    footer.textContent = 'Values are estimates. Always verify pricing with multiple sources.';
-    priceContainer.appendChild(footer);
 
-    // Add to the body
-    document.body.appendChild(priceContainer);
+    // Add icon and minimal text to pill
+    collapsedPill.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="${theme.accent}">
+            <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.7L20 9l-8 4-8-4 8-4.3z"/>
+        </svg>
+        <span style="font-size: 13px; font-weight: 600;">Market Info</span>
+    `;
 
-    // Make the container draggable
+    bannerContainer.appendChild(collapsedPill);
+
+    // Create expandable content container
+    const contentContainer = document.createElement('div');
+    contentContainer.style.cssText = `
+        max-height: 0;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        width: 0;
+        opacity: 0;
+    `;
+    contentContainer.innerHTML = kbbPrice;
+    bannerContainer.appendChild(contentContainer);
+
+    // Toggle expansion on click
+    let isExpanded = false;
+    collapsedPill.onclick = () => {
+        isExpanded = !isExpanded;
+        if (isExpanded) {
+            bannerContainer.style.width = '340px';
+            contentContainer.style.maxHeight = '70vh';
+            contentContainer.style.width = '100%';
+            contentContainer.style.opacity = '1';
+            contentContainer.style.padding = '16px';
+            bannerContainer.style.borderRadius = '8px';
+            collapsedPill.style.borderBottom = `1px solid ${theme.border}`;
+        } else {
+            bannerContainer.style.width = 'auto';
+            contentContainer.style.maxHeight = '0';
+            contentContainer.style.width = '0';
+            contentContainer.style.opacity = '0';
+            contentContainer.style.padding = '0';
+            bannerContainer.style.borderRadius = '20px';
+            collapsedPill.style.borderBottom = 'none';
+        }
+    };
+
+    // Add hover effect
+    collapsedPill.onmouseover = () => {
+        bannerContainer.style.transform = 'translateY(-2px)';
+        bannerContainer.style.boxShadow = `0 4px 16px ${theme.shadow}`;
+    };
+    collapsedPill.onmouseout = () => {
+        bannerContainer.style.transform = 'translateY(0)';
+        bannerContainer.style.boxShadow = `0 2px 12px ${theme.shadow}`;
+    };
+
+    // Make the banner draggable
     let isDragging = false;
     let currentX;
     let currentY;
     let initialX;
     let initialY;
 
-    header.addEventListener('mousedown', (e) => {
-        if (e.target === closeButton || e.target.closest('svg')) return;
+    collapsedPill.addEventListener('mousedown', (e) => {
+        if (e.target.tagName.toLowerCase() === 'a') return; // Don't drag when clicking links
         isDragging = true;
-        initialX = e.clientX - priceContainer.offsetLeft;
-        initialY = e.clientY - priceContainer.offsetTop;
-        header.style.cursor = 'grabbing';
+        initialX = e.clientX - bannerContainer.offsetLeft;
+        initialY = e.clientY - bannerContainer.offsetTop;
     }, { passive: true });
 
     document.addEventListener('mousemove', (e) => {
@@ -658,42 +627,36 @@ function injectKBBPrice(kbbPrice) {
         currentX = e.clientX - initialX;
         currentY = e.clientY - initialY;
 
-        // Ensure the container stays within viewport bounds
         const bounds = {
             left: 0,
             top: 0,
-            right: window.innerWidth - priceContainer.offsetWidth,
-            bottom: window.innerHeight - priceContainer.offsetHeight
+            right: window.innerWidth - bannerContainer.offsetWidth,
+            bottom: window.innerHeight - bannerContainer.offsetHeight
         };
 
         currentX = Math.min(Math.max(currentX, bounds.left), bounds.right);
         currentY = Math.min(Math.max(currentY, bounds.top), bounds.bottom);
 
-        priceContainer.style.left = `${currentX}px`;
-        priceContainer.style.top = `${currentY}px`;
-        priceContainer.style.right = 'auto';
+        bannerContainer.style.left = `${currentX}px`;
+        bannerContainer.style.top = `${currentY}px`;
+        bannerContainer.style.right = 'auto';
     }, { passive: false });
 
     document.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            header.style.cursor = 'grab';
-        }
+        isDragging = false;
     }, { passive: true });
 
-    // Set header cursor to indicate draggability
-    header.style.cursor = 'grab';
-
-    // Add a subtle animation
+    // Add entrance animation
+    bannerContainer.style.opacity = '0';
+    bannerContainer.style.transform = 'translateY(-20px)';
+    
     setTimeout(() => {
-        priceContainer.style.opacity = '0';
-        priceContainer.style.transform = 'translateY(-20px)';
-        
-        setTimeout(() => {
-            priceContainer.style.opacity = '1';
-            priceContainer.style.transform = 'translateY(0)';
-        }, 50);
-    }, 0);
+        bannerContainer.style.opacity = '1';
+        bannerContainer.style.transform = 'translateY(0)';
+    }, 50);
+
+    // Add to the body
+    document.body.appendChild(bannerContainer);
 
     return true;
 }
