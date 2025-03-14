@@ -8,4 +8,62 @@
 #kbb-price-container * {
     visibility: visible !important;
     opacity: 1 !important;
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.kbb-details {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.kbb-details a {
+    color: #1877f2;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.kbb-details a:hover {
+    color: #166fe5;
+    text-decoration: underline;
+}
+
+.car-info, .market-analysis, .resources {
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.dark-mode .car-info,
+.dark-mode .market-analysis,
+.dark-mode .resources {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+#kbb-error {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 } 

@@ -32,6 +32,90 @@ function debugLogDOMStructure() {
     console.log("4. Potential car-related text found:", carRelatedText);
 }
 
+// Cache for storing extracted car details
+const carDetailsCache = new Map();
+
+// Debounce helper function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Rate limiting helper
+const rateLimiter = {
+    lastCall: 0,
+    minInterval: 1000, // Minimum time between API calls in ms
+    canMakeCall() {
+        const now = Date.now();
+        if (now - this.lastCall >= this.minInterval) {
+            this.lastCall = now;
+            return true;
+        }
+        return false;
+    }
+};
+
+// Function to show loading state
+function showLoadingState() {
+    const loadingContainer = document.createElement('div');
+    loadingContainer.id = 'kbb-loading';
+    loadingContainer.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        z-index: 9999;
+        font-family: Helvetica, Arial, sans-serif;
+    `;
+    loadingContainer.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="loading-spinner"></div>
+            <span>Loading market data...</span>
+        </div>
+    `;
+    document.body.appendChild(loadingContainer);
+    return loadingContainer;
+}
+
+// Function to show error message
+function showErrorMessage(message) {
+    const errorContainer = document.createElement('div');
+    errorContainer.id = 'kbb-error';
+    errorContainer.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #ffebee;
+        padding: 10px 20px;
+        border-radius: 20px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        z-index: 9999;
+        font-family: Helvetica, Arial, sans-serif;
+        color: #c62828;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    `;
+    errorContainer.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+        </svg>
+        <span>${message}</span>
+    `;
+    document.body.appendChild(errorContainer);
+    setTimeout(() => errorContainer.remove(), 5000);
+}
+
 // Function to extract car details from Facebook Marketplace listing
 function extractCarDetails() {
     console.debug("Attempting to extract car details...");
@@ -661,38 +745,53 @@ function injectKBBPrice(kbbPrice) {
     return true;
 }
 
-// Main function with cleaner logging
+// Main function with improved error handling and caching
 async function main() {
     console.log("Extension started");
     
     try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const carDetails = extractCarDetails();
-        if (carDetails) {
-            console.log("Car details found:", {
-                year: carDetails.year,
-                make: carDetails.make,
-                model: carDetails.model,
-                mileage: carDetails.mileage,
-                price: carDetails.price
-            });
-            
-            const kbbPrice = await getKBBPrice(carDetails);
-            injectKBBPrice(kbbPrice);
+        const loadingIndicator = showLoadingState();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Check cache first
+        const currentUrl = location.href;
+        if (carDetailsCache.has(currentUrl)) {
+            const cachedDetails = carDetailsCache.get(currentUrl);
+            injectKBBPrice(cachedDetails);
+            loadingIndicator.remove();
+            return;
         }
+
+        const carDetails = extractCarDetails();
+        if (!carDetails) {
+            throw new Error("Could not extract car details from the listing");
+        }
+
+        if (!rateLimiter.canMakeCall()) {
+            throw new Error("Please wait a moment before checking another listing");
+        }
+
+        const kbbPrice = await getKBBPrice(carDetails);
+        carDetailsCache.set(currentUrl, kbbPrice);
+        injectKBBPrice(kbbPrice);
+        loadingIndicator.remove();
+
     } catch (error) {
         console.error("Error:", error.message);
+        showErrorMessage(error.message);
     }
 }
 
-// URL change detection with cleaner logging
+// Debounced URL change detection
+const debouncedMain = debounce(main, 500);
+
+// URL change detection with debouncing
 let lastUrl = location.href;
 const observer = new MutationObserver(() => {
     if (location.href !== lastUrl) {
         lastUrl = location.href;
         if (location.href.includes('/marketplace/item/')) {
-            main();
+            debouncedMain();
         }
     }
 });
