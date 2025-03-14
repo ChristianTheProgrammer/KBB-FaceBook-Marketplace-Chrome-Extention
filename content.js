@@ -602,15 +602,36 @@ async function getMarketConditions(make, model) {
 
 // Helper function to format model names for URLs
 function formatModelForUrl(make, model, site) {
+    // Clean the model string first - remove any special characters and emojis
+    const cleanModel = model.replace(/[^\x20-\x7E]/g, '').trim();
     const makeL = make.toLowerCase();
-    const modelL = model.toLowerCase();
+    const modelL = cleanModel.toLowerCase();
 
-    // Common model name mappings
+    // BMW specific model mappings
+    const bmwModels = {
+        'x5': 'x5',
+        'x3': 'x3',
+        'x1': 'x1',
+        'x6': 'x6',
+        'x7': 'x7',
+        'm3': 'm3',
+        'm4': 'm4',
+        'm5': 'm5',
+        '3 series': '3-series',
+        '5 series': '5-series',
+        '7 series': '7-series'
+    };
+
+    // Extract base model for BMW (e.g., "x5" from "x5 xdrive35d sport utility 4d")
+    if (makeL === 'bmw') {
+        const baseModel = modelL.split(' ')[0];
+        if (bmwModels[baseModel]) {
+            return bmwModels[baseModel];
+        }
+    }
+
+    // Common model name mappings for other cases
     const modelMappings = {
-        // BMW
-        '3': '3-series',
-        '5': '5-series',
-        '7': '7-series',
         // Mercedes
         'c': 'c-class',
         'e': 'e-class',
@@ -627,15 +648,20 @@ function formatModelForUrl(make, model, site) {
     switch(site) {
         case 'kbb':
         case 'edmunds':
+            // For BMW, we want just the base model series
+            if (makeL === 'bmw') {
+                const baseModel = modelL.split(' ')[0];
+                return bmwModels[baseModel] || baseModel;
+            }
             // These sites typically use hyphenated names
-            return modelMappings[modelL] || modelL.replace(/\s+/g, '-');
+            return modelMappings[modelL] || modelL.split(' ')[0].replace(/\s+/g, '-');
         case 'autotempest':
             // AutoTempest only allows letters, numbers, and periods
-            return modelL.replace(/[^a-zA-Z0-9.]/g, '');
+            return modelL.split(' ')[0].replace(/[^a-zA-Z0-9.]/g, '');
         case 'jdpower':
-            return modelL.replace(/\s+/g, '-');
+            return modelL.split(' ')[0].replace(/\s+/g, '-');
         default:
-            return modelL;
+            return modelL.split(' ')[0];
     }
 }
 
